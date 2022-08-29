@@ -1,0 +1,274 @@
+<html>
+
+<head>
+    <link rel="stylesheet" href="c2pa.css">
+</head>
+
+<body>
+    <script type="module">
+
+
+        import { ContentAuth } from 'https://cdn.jsdelivr.net/npm/@contentauth/sdk@0.8.12-alpha.10/dist/cai-sdk.esm.min.js';
+        import 'https://cdn.jsdelivr.net/npm/@contentauth/web-components@0.4.2-alpha.20/dist/index.min.js';
+
+        const wasmSrc = "https://cdn.jsdelivr.net/npm/@contentauth/sdk@0.8.12-alpha.10/dist/assets/wasm/toolkit_bg.wasm";
+        const workerSrc = "https://cdn.jsdelivr.net/npm/@contentauth/sdk@0.8.12-alpha.10/dist/cai-sdk.worker.min.js";
+        const sdk = new ContentAuth({ wasmSrc, workerSrc });
+
+        function findMapEntry(map, entry) {
+            for (const [key, value] of map.entries(map)) {
+                if (key.length >= entry.length) {
+                    if (key.substring(key.length - entry.length) == entry) {
+                        return key;
+                    }
+                }
+            }
+            return;
+        }
+ 
+        async function LoadClaim(ID) {
+
+            var claimObject = document.getElementById(ID);
+            var srcImg = claimObject.getElementsByTagName("img")[0].src;
+            
+            const sdk = new ContentAuth({
+                wasmSrc,
+                workerSrc,
+            });
+            const provenance = await sdk.processImage(srcImg);
+
+            var item = claimObject.querySelector(".claim");
+            var entity = claimObject;
+                    
+
+           var claimProperties = {
+                "claimProducer": "",
+                "claimOrg":"",
+                "claimOrgIdentifier":"",
+                "claimOrgURL":"",
+                "claimSocial": "",
+                "claimC2PAActions": "Unknown",
+                "ipfs_cid": "",
+                "ipfs_provider": "",
+                "ipfs_url": "",
+                "filecoin_piececid":"",
+                "filecoin_provider":"",
+                "filecoin_url":"",
+                "nft_metadata":"",
+                "nft_metadata_url":"",
+                "nft_transaction":"",
+                "nft_url":"",
+                "asset_stored_timestamp": "",
+                "gpsLocation": "Unknown",
+                "capturedWith": "",
+                "dateCreated": ""
+            }
+            provenance.activeClaim.asSerializableData().then((result) => {
+                var panel = document.getElementsByTagName("cai-discrete-panel")[0];
+                item.setAttribute("claim", JSON.stringify(result.data));
+                item.setAttribute("viewMoreUrl", ContentAuth.generateVerifyUrl(srcImg));
+
+                var e = entity.innerHTML;
+
+                //findMapEntry just returns "" if the assertion is missing
+                //also looks for substring
+                var claim = provenance.activeClaim;
+                var claimSocialHash = {};
+
+
+                console.log(provenance);
+
+                // Loop through all claims
+                for (const [key, value] of provenance.claims.entries()) {
+                    var claim = value;
+
+
+                    var c2paActions = findMapEntry(claim.assertions, `c2pa.actions`);
+                    if (c2paActions) {
+
+                        for (var i = 0; i < claim.assertions.get(c2paActions).assertion.data['actions'].length; i++) {
+                            switch (claim.assertions.get(c2paActions).assertion.data['actions'][i]['action']) {
+                                case "c2pa.created":
+                                    //dateCreated=claim.assertions.get(c2paActions).assertion.data['actions'][i]['when'];
+                                    claimProperties["capturedWith"] = claim.recorder;
+                                    break;
+                                default:
+
+                            }
+                        }
+                    }
+
+
+
+                    var starlingKey = findMapEntry(claim.assertions, `org.starlinglab.integrity`);
+                    if (starlingKey) {
+                        for (var i = 0; i < claim.assertions.get(starlingKey).assertion.data['starling:signatures'].length; i++) {
+                            if (claim.assertions.get(starlingKey).assertion.data['starling:signatures'][i]["starling:algorithm"] == "numbers-Zion") {
+                                var signatures = claim.assertions.get(starlingKey).assertion.data['starling:signatures'][1];
+                            }
+                        }
+                        for (const [key, value] of Object.entries(signatures)) {
+                            if (key == "starling:authenticatedMessagePublic") {
+                                var dateCreated;
+                                dateCreated = value['starling:assetCreatedTimestamp'];
+                                try {
+                                    var d = new Date(value['starling:assetCreatedTimestamp']);
+                                    //d=new Date(d.getTime() + (d.getTimezoneOffset()*60000));
+                                    var h = d.getHours();
+                                    var ampm = " AM";
+                                    if (h > 12) {
+                                        h = h - 12;
+                                        ampm = " PM";
+                                    }
+                                    if (h == 0) h = "12";
+                                    var m = d.getMinutes();
+                                    var leadingm = ``;
+                                    if (m<10) leadingm = `0`
+                                    dateCreated = d.toDateString() + " at " + h + ":" + leadingm + m + ampm;
+
+                                    var index1 = dateCreated.indexOf(' ');
+                                    var index2 = dateCreated.indexOf(' ', dateCreated.indexOf(' ') + 1);
+                                    var firstChunk = dateCreated.substr(0, index1);
+                                    var secondChunk = dateCreated.substr(index1, index2);
+                                    var thirdChunk = dateCreated.substr(index1 + index2 + 1);
+                                    dateCreated = secondChunk + ", " + thirdChunk;
+
+                                } catch (ex) {
+                                    dateCreated = value['starling:assetCreatedTimestamp'];
+                                    console.log(ex);
+                                }
+                                claimProperties["dateCreated"]=dateCreated;
+                            }
+                        }
+                    }
+
+                    var IPFSKey = findMapEntry(claim.assertions, `org.starlinglab.storage.ipfs`);
+                    if (IPFSKey) {
+                        claimProperties["ipfs_cid"] = claim.assertions.get(IPFSKey).assertion.data['starling:ipfsCID'];
+                        claimProperties["ipfs_provider"] = claim.assertions.get(IPFSKey).assertion.data['starling:provider'];
+                        claimProperties["asset_stored_timestamp"] = claim.assertions.get(IPFSKey).assertion.data['starling:assetStoredTimestamp'];
+                        claimProperties["ipfs_url"] = `<a target="_blank" href="https://ipfs.io/ipfs/` + claimProperties["ipfs_cid"] + `" class="overflowText">` + claimProperties["ipfs_cid"] + `</a><br>`;
+                    }
+                    
+                    var FileCoinKey = findMapEntry(claim.assertions, `org.starlinglab.storage.filecoin`);
+                    if (FileCoinKey) {
+                        claimProperties["filecoin_piececid"] = claim.assertions.get(FileCoinKey).assertion.data['starling:pieceCID'];
+                        claimProperties["filecoin_provider"] = claim.assertions.get(FileCoinKey).assertion.data['starling:provider'];
+                        claimProperties["filecoin_url"] = `<a target="_blank" href="https://filecoin.tools/` + claimProperties["filecoin_piececid"] + `" class="overflowText">` + claimProperties["filecoin_piececid"] + `</a><br>`;
+                    }
+
+                    var NFTKey = findMapEntry(claim.assertions, `org.starlinglab.nft.flow`);
+                    if (NFTKey) {
+                        claimProperties["nft_metadata"] = claim.assertions.get(NFTKey).assertion.data['starling:metadata'];
+                        claimProperties["nft_metadata_url"] = `<a target="_blank" href="` + claimProperties["nft_metadata"] + `">View metadata</a><br>`;
+                        claimProperties["nft_transaction"] = claim.assertions.get(NFTKey).assertion.data['starling:transaction'];
+                        claimProperties["nft_url"] = `<a target="_blank" href="https://flowscan.org/transaction/` + claimProperties["nft_transaction"] + `" class="overflowText">` + claimProperties["nft_transaction"] + `</a><br>`;
+                    }
+
+                    var metadataKey = findMapEntry(claim.assertions, `stds.iptc.photo-metadata`);
+
+                    if (metadataKey) {
+
+                        var city = claim.assertions.get(metadataKey).assertion.data['Iptc4xmpExt:LocationCreated']['Iptc4xmpExt:City'];
+                        var state = claim.assertions.get(metadataKey).assertion.data['Iptc4xmpExt:LocationCreated']['Iptc4xmpExt:ProvinceState'];
+                        var country = claim.assertions.get(metadataKey).assertion.data['Iptc4xmpExt:LocationCreated']['Iptc4xmpExt:CountryName'];
+
+                        claimProperties["gpsLocation"] = city;
+                        if (city != '') claimProperties["gpsLocation"] += ", "
+                        claimProperties["gpsLocation"] += state;
+                        if (state != '') claimProperties["gpsLocation"] += ", "
+                        claimProperties["gpsLocation"] += country;
+
+                        claimProperties["claimProducer"] = claim.assertions.get(metadataKey).assertion.data['dc:creator'];
+                    }
+                }
+
+                claim = provenance.activeClaim;
+                var creativeWorkKey = findMapEntry(claim.assertions, `CreativeWork`);
+                if (creativeWorkKey) {
+
+                    for (var i = 0; i < claim.assertions.get(creativeWorkKey).assertion.data['author'].length; i++) {
+                        var url = claim.assertions.get(creativeWorkKey).assertion.data['author'][i]['identifier'];
+                        var urlID = claim.assertions.get(creativeWorkKey).assertion.data['author'][i]['@id'];
+
+                        if (claim.assertions.get(creativeWorkKey).assertion.data['author'][i]["@type"]=="Organization" && !urlID ) {
+                            claimProperties["claimOrg"]=claim.assertions.get(creativeWorkKey).assertion.data['author'][i]["name"];
+                            claimProperties["claimOrgIdentifier"]=claim.assertions.get(creativeWorkKey).assertion.data['author'][i]["identifier"];
+                            claimProperties["claimOrgURL"]=`<a target="_blank" href="` + claimProperties["claimOrgIdentifier"] + `">` + claimProperties["claimOrg"] + `</a><br>`;
+                        }
+
+                        if (urlID) {
+                            if (!claimSocialHash[urlID]) {
+                                claimSocialHash[urlID] = 1;
+                                claimProperties["claimSocial"] += "<a target='_blank' href='" + claim.assertions.get(creativeWorkKey).assertion.data['author'][i]['@id'] + "'>";
+                                claimProperties["claimSocial"] += "@" + claim.assertions.get(creativeWorkKey).assertion.data['author'][i]['name'];
+                                claimProperties["claimSocial"] += "</a> "
+                            }
+                        }
+                    }
+                }
+
+                for( var k in claimProperties) {
+                    e = e.replaceAll("{claim." + k + "}", claimProperties[k]);
+                }
+                entity.innerHTML = e;
+
+            });
+        };
+        LoadClaim("test1");
+
+</script>
+    <br>
+
+    <div id="test1" class="caiwrapper" style="width:600px">
+        <img src="0de5565366485ab803d7847cf16dd55154b83778b164351f3c388579431b1dce.jpg">
+        <cai-popover id="test9" interactive placement="left" arrowSize="13">
+            <cai-indicator slot="trigger"></cai-indicator>
+            <cai-discrete-panel slot="content" claim="" class="claim theme-spectrum">
+                <div slot="sections" className="sections">
+                    <cai-panel-section header="Produced by"
+                        helpText_off="Chosen name of the person who exported this content" class="theme-spectrum">
+                        {claim.claimProducer}
+                        {claim.claimOrgURL}
+                    </cai-panel-section>
+                    <cai-panel-section header="Location" helpText_off="Location information of asset."
+                        class="theme-spectrum">
+                        {claim.gpsLocation}
+                    </cai-panel-section>
+                    <cai-panel-section header="Captured On" helpText_off="" class="theme-spectrum">
+                        {claim.dateCreated}
+                    </cai-panel-section>
+                    <cai-panel-section header="Captured With" helpText_off="" class="theme-spectrum">
+                        {claim.capturedWith}
+                    </cai-panel-section>
+                    <cai-panel-section header="IPFS Content ID" helpText_off="IPFS fingerprint"
+                        class="theme-spectrum">
+                        {claim.ipfs_url}
+                    </cai-panel-section>
+                    <cai-panel-section header="FileCoin Piece Content ID" helpText_off="IPFS fingerprint"
+                        class="theme-spectrum">
+                        {claim.filecoin_url}
+                    </cai-panel-section>
+                    <cai-panel-section header="Stored With" helpText_off="Storage provider" class="theme-spectrum">
+                        {claim.filecoin_provider}
+                    </cai-panel-section>
+
+                    <cai-panel-section header="Flow NFT" helpText_off="Storage provider" class="theme-spectrum">
+                        {claim.nft_url}
+                        {claim.nft_metadata_url}
+                    </cai-panel-section>
+                    <cai-panel-section header="Social media"
+                        helpText_off="Social media accounts connected to the producer of this content"
+                        class="theme-spectrum">
+                        <div className="social-media">
+                            {claim.claimSocial}
+                        </div>
+                    </cai-panel-section>
+
+                </div>
+            </cai-discrete-panel>
+        </cai-popover>
+    </div>
+</body>
+
+</html>

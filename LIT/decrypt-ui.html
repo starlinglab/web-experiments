@@ -1,0 +1,130 @@
+<html>
+
+<body>
+    <div style="float:right"><img id="image"></div>
+    Url: <input type="text" style="width:500px"
+        value="https://bafybeicounx43itjxidhoszbtc2zzctd3xiaqjkgmg5aqcwqo2wrffsh4u.ipfs.dweb.link/dog.jpg.encrypted"
+        id="txtURL" /><br>
+    Lit Key: <input type="text" style="width:500px"
+        value="f6e6584847e3bd46881fbfaf5ce4029c69a49dc0da3c75181b091e8188b81755ab09ca544dbb74cf216686abe24a7315cf8ca3d2a7e9b112a2f252763c1f947f9c5f00fd96fd8902002c29e655fef5cc2b477b6460a24fade640edd33a8fa68051cbc0c61c709d1c476a07f3a00346f9a2622651b0a0135c7599cd3ab10e9eb20000000000000020b54ac93961bac732dfa220d3ccdf93e6ab7064684ef0371d38058eb45cb35cb1822a208ea0b5e71f4073cc94ef918f80"
+        id="txtLIT" />
+    <br>
+    <br>
+    Access Control: <br>
+    <textarea id="AccessControlCondotions" cols="70" rows="15">
+[
+    {
+      "contractAddress": "0x7c7757a9675f06f3be4618bb68732c4ab25d2e88",
+      "standardContractType": "ERC1155",
+      "chain": "polygon",
+      "method": "balanceOf",
+      "parameters": [
+        ":userAddress",
+        "72"
+      ],
+      "returnValueTest": {
+        "comparator": ">=",
+        "value": "1"
+      }
+    }
+  ]
+</textarea><br>
+
+    <script onload='LitJsSdk.litJsSdkLoadedInALIT()' src="https://jscdn.litgateway.com/index.web.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script type="module">
+        import { ethers } from "./ethers-5.2.esm.min.js";
+        const chain = "polygon";
+
+        var accessControlConditions = "";
+        const accessControlConditions2 = [
+            {
+                "contractAddress": "0x7c7757a9675f06f3be4618bb68732c4ab25d2e88",
+                "standardContractType": "ERC1155",
+                "chain": "polygon",
+                "method": "balanceOf",
+                "parameters": [
+                    ":userAddress",
+                    '72'
+                ],
+                "returnValueTest": {
+                    "comparator": ">=",
+                    "value": "1"
+                }
+            }
+        ]
+        //import axios from './axios.min.js';
+        async function test123() {
+            try {
+
+                var URL = document.getElementById("txtURL").value;
+                var litKey = document.getElementById("txtLIT").value;
+                accessControlConditions = document.getElementById("AccessControlCondotions").value;
+                accessControlConditions = JSON.parse(accessControlConditions);
+
+                let response = await axios.get(URL, { responseType: 'arraybuffer' });
+                let readBuffer = response.data;
+
+                console.log(readBuffer);
+
+                const authSig = await LitJsSdk.checkAndSignAuthMessage({ chain: 'polygon' });
+
+                let litNodeClient = new LitJsSdk.LitNodeClient({
+                    alertWhenUnauthorized: false,
+                });
+
+                await litNodeClient.connect();
+                const SYMM_KEY_ALGO_PARAMS = {
+                    name: "AES-CBC",
+                    length: 256,
+                };
+
+                var unlockedKey = await litNodeClient.getEncryptionKey({
+                    accessControlConditions: accessControlConditions,
+                    toDecrypt: litKey,
+                    authSig: authSig,
+                    chain: chain,
+                });
+
+                const unlockedSymmKey = await crypto.subtle.importKey(
+                    "raw",
+                    unlockedKey,
+                    SYMM_KEY_ALGO_PARAMS,
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+
+                //Decrypt data
+                let decryptedBlobArrayBuffer = await LitJsSdk.decryptWithSymmetricKey(
+                    new Blob([readBuffer]),
+                    unlockedSymmKey
+                );
+                console.log(decryptedBlobArrayBuffer);
+
+                var data = "data:image/jpeg;base64," + arrayBufferToBase64(decryptedBlobArrayBuffer);
+                document.getElementById('image').src = data;
+                console.log(data);
+            } catch (ex) {
+                console.log(ex);
+                alert(ex.message);
+            }
+        }
+        document.querySelector('#hello').addEventListener('click', test123);
+
+        function arrayBufferToBase64(buffer) {
+            var binary = '';
+            var bytes = new Uint8Array(buffer);
+            var len = bytes.byteLength;
+            for (var i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+
+    </script>
+
+    <input type="button" id="hello" value="go" />    
+</body>
+
+</html>

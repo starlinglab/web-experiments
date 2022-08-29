@@ -1,0 +1,266 @@
+<html>
+
+<head>
+    <link rel="stylesheet" href="c2pa.css">
+</head>
+
+<body>
+    <script type="module">
+
+
+        import { ContentAuth } from 'https://cdn.jsdelivr.net/npm/@contentauth/sdk@0.8.12-alpha.10/dist/cai-sdk.esm.min.js';
+        import 'https://cdn.jsdelivr.net/npm/@contentauth/web-components@0.4.2-alpha.20/dist/index.min.js';
+
+        const wasmSrc = "https://cdn.jsdelivr.net/npm/@contentauth/sdk@0.8.12-alpha.10/dist/assets/wasm/toolkit_bg.wasm";
+        const workerSrc = "https://cdn.jsdelivr.net/npm/@contentauth/sdk@0.8.12-alpha.10/dist/cai-sdk.worker.min.js";
+        const sdk = new ContentAuth({ wasmSrc, workerSrc });
+
+        function findMapEntry(map, entry) {
+            for (const [key, value] of map.entries(map)) {
+                if (key.length >= entry.length) {
+                    if (key.substring(key.length - entry.length) == entry) {
+                        return key;
+                    }
+                }
+            }
+            return;
+        }
+        async function LoadClaim(ID) {
+
+            var srcImg = document.getElementById(ID).getElementsByTagName("img")[0].src;
+            const sdk = new ContentAuth({
+                wasmSrc,
+                workerSrc,
+            });
+            const provenance = await sdk.processImage(
+                srcImg);
+            var item = document.getElementById("claim");
+            var entity = document.getElementById("test1");
+            provenance.activeClaim.asSerializableData().then((result) => {
+                var panel = document.getElementsByTagName("cai-discrete-panel")[0];
+                item.setAttribute("claim", JSON.stringify(result.data));
+                item.setAttribute("viewMoreUrl", ContentAuth.generateVerifyUrl(srcImg));
+
+                var e = entity.innerHTML;
+
+
+                //findMapEntry just returns "" if the assertion is missing
+                //also looks for substring
+                var claim = provenance.activeClaim;
+
+                var claimProducer = ""
+                var claimSocial = ""
+                var claimSocialHash = {};
+                var claimC2PAActions = "Unknown"
+                var ipfs_cid = "";
+                var ipfs_provider = "";
+                var ipfs_url = "";
+                var asset_stored_timestamp = "";
+                var gpsLocation = "Unknown";
+                var dcRights = "Unknown";
+                var dcCreator = "Unknown";
+                var capturedWith = "";
+                var dateCreated = "";
+
+                console.log(provenance);
+                for (const [key, value] of provenance.claims.entries()) {
+                    var claim = value;
+
+
+                    var c2paActions = findMapEntry(claim.assertions, `c2pa.actions`);
+                    if (c2paActions) {
+
+                        for (var i = 0; i < claim.assertions.get(c2paActions).assertion.data['actions'].length; i++) {
+                            switch (claim.assertions.get(c2paActions).assertion.data['actions'][i]['action']) {
+                                case "c2pa.created":
+                                    //dateCreated=claim.assertions.get(c2paActions).assertion.data['actions'][i]['when'];
+                                    capturedWith = claim.recorder;
+                                    break;
+                                default:
+
+                            }
+                        }
+                    }
+
+
+
+                    var starlingKey = findMapEntry(claim.assertions, `org.starlinglab.integrity`);
+                    if (starlingKey) {
+                        for (var i = 0; i < claim.assertions.get(starlingKey).assertion.data['starling:signatures'].length; i++) {
+                            if (claim.assertions.get(starlingKey).assertion.data['starling:signatures'][i]["starling:algorithm"] == "numbers-Zion") {
+                                var signatures = claim.assertions.get(starlingKey).assertion.data['starling:signatures'][1];
+                            }
+                        }
+                        for (const [key, value] of Object.entries(signatures)) {
+                            if (key == "starling:authenticatedMessagePublic") {
+                                dateCreated = value['starling:assetCreatedTimestamp'];
+                                try {
+                                    var d = new Date(value['starling:assetCreatedTimestamp']);
+                                    //d=new Date(d.getTime() + (d.getTimezoneOffset()*60000));
+                                    var h = d.getHours();
+                                    var ampm = " AM";
+                                    if (h > 12) {
+                                        h = h - 12;
+                                        ampm = " PM";
+                                    }
+                                    if (h == 0) h = "12";
+
+                                    dateCreated = d.toDateString() + " at " + h + ":" + d.getMinutes() + ampm;
+
+                                    var index1 = dateCreated.indexOf(' ');
+                                    var index2 = dateCreated.indexOf(' ', dateCreated.indexOf(' ') + 1);
+                                    var firstChunk = dateCreated.substr(0, index1);
+                                    var secondChunk = dateCreated.substr(index1, index2);
+                                    var thirdChunk = dateCreated.substr(index1 + index2 + 1);
+                                    dateCreated = secondChunk + ", " + thirdChunk;
+
+                                } catch (ex) {
+                                    dateCreated = value['starling:assetCreatedTimestamp'];
+                                    console.log(ex);
+                                }
+                            }
+
+                        }
+                    }
+
+                    var C2PAActionsKey = findMapEntry(claim.assertions, `c2pa.actions`);
+                    if (C2PAActionsKey) {
+                        claimC2PAActions = claim.assertions.get(C2PAActionsKey).assertion.data['actions'].length;
+                    }
+
+                    var IPFSKey = findMapEntry(claim.assertions, `org.starlinglab.storage.ipfs`);
+                    if (IPFSKey) {
+                        ipfs_cid = claim.assertions.get(IPFSKey).assertion.data['starling:ipfsCID'];
+                        ipfs_provider = claim.assertions.get(IPFSKey).assertion.data['starling:provider'];
+                        asset_stored_timestamp = claim.assertions.get(IPFSKey).assertion.data['starling:assetStoredTimestamp'];
+                        ipfs_url = `<a target="_blank" href="https://ipfs.io/ipfs/` + ipfs_cid + `" class="overflowText">` + ipfs_cid + `</a><br>`;
+                    }
+
+                    /*var exifKey = findMapEntry(claim.assertions, `stds.exif`);
+                    var gpsData = "Unknown"
+                    if (exifKey) {
+                        gpsData = "Lat:" + claim.assertions.get(exifKey).assertion.data['exif:GPSLatitude'];
+                        gpsData += " " + claim.assertions.get(exifKey).assertion.data['exif:GPSLatitudeRef'];
+                        gpsData += " Lon:" + claim.assertions.get(exifKey).assertion.data['exif:GPSLongitude'];
+                        gpsData += " " + claim.assertions.get(exifKey).assertion.data['exif:GPSLongitudeRef'];
+                    }*/
+
+                    var metadataKey = findMapEntry(claim.assertions, `stds.iptc.photo-metadata`);
+
+                    if (metadataKey) {
+
+                        var city = claim.assertions.get(metadataKey).assertion.data['Iptc4xmpExt:LocationCreated']['Iptc4xmpExt:City'];
+                        var state = claim.assertions.get(metadataKey).assertion.data['Iptc4xmpExt:LocationCreated']['Iptc4xmpExt:ProvinceState'];
+                        var country = claim.assertions.get(metadataKey).assertion.data['Iptc4xmpExt:LocationCreated']['Iptc4xmpExt:CountryName'];
+
+                        gpsLocation = city;
+                        if (gpsLocation != '') gpsLocation += ", "
+                        gpsLocation += state;
+                        if (gpsLocation != '') gpsLocation += ", "
+                        gpsLocation += country;
+
+                        claimProducer = claim.assertions.get(metadataKey).assertion.data['dc:creator'];
+                    }
+                }
+
+                claim = provenance.activeClaim;
+                var creativeWorkKey = findMapEntry(claim.assertions, `CreativeWork`);
+                if (creativeWorkKey) {
+
+                    for (var i = 0; i < claim.assertions.get(creativeWorkKey).assertion.data['author'].length; i++) {
+                        var url = claim.assertions.get(creativeWorkKey).assertion.data['author'][i]['identifier'];
+                        var urlID = claim.assertions.get(creativeWorkKey).assertion.data['author'][i]['@id'];
+
+
+                        if (urlID) {
+                            if (!claimSocialHash[urlID]) {
+                                claimSocialHash[urlID] = 1;
+                                claimSocial += "<a target='_blank' href='" + claim.assertions.get(creativeWorkKey).assertion.data['author'][i]['@id'] + "'>";
+                                claimSocial += "@" + claim.assertions.get(creativeWorkKey).assertion.data['author'][i]['name'];
+                                claimSocial += "</a> "
+                            }
+                        }
+                    }
+                }
+
+                e = e.replaceAll("{claim.recorder}", claim.recorder)
+                e = e.replaceAll("{claim.producer}", claimProducer)
+                e = e.replaceAll("{claim.social}", claimSocial)
+                e = e.replaceAll("{claim.created}", dateCreated)
+
+
+                e = e.replaceAll("{claim.assertionscount}", claimC2PAActions)
+                //e = e.replaceAll("{gps.display}", gpsData)
+                e = e.replaceAll("{gps.location}", gpsLocation)
+                e = e.replaceAll("{dc.rights}", dcRights);
+                e = e.replaceAll("{dc.creator}", dcCreator);
+
+                e = e.replaceAll("{ipfs_cid}", ipfs_cid);
+                e = e.replaceAll("{ipfs_url}", ipfs_url);
+                e = e.replaceAll("{ipfs_provider}", ipfs_provider);
+                e = e.replaceAll("{claim.capturedwith}", capturedWith);
+
+                entity.innerHTML = e;
+
+            });
+        };
+        LoadClaim("test1");
+    </script>
+    <br>
+    <div id="test1" class="caiwrapper" style="width:600px">
+        <img src="146631223-796b3a0a-b2a1-4800-803c-4f543a36d4b0.jpg">
+        <cai-popover id="test9" interactive placement="left" arrowSize="13">
+            <cai-indicator slot="trigger"></cai-indicator>
+            <cai-discrete-panel id="claim" slot="content" claim="" class="theme-spectrum">
+                <div slot="sections" className="sections">
+                    <cai-panel-section header="Produced by"
+                        helpText_off="Chosen name of the person who exported this content" class="theme-spectrum">
+                        {claim.producer}
+                    </cai-panel-section>
+
+                    <cai-panel-section header="Location" helpText_off="Location information of asset."
+                        class="theme-spectrum">
+                        {gps.location}
+                    </cai-panel-section>
+                    <cai-panel-section header="Captured On" helpText_off="" class="theme-spectrum">
+                        {claim.created}
+                    </cai-panel-section>
+                    <cai-panel-section header="Captured With" helpText_off="" class="theme-spectrum">
+                        {claim.capturedwith}
+                    </cai-panel-section>
+                    <cai-panel-section header="Stored By" helpText_off="Storage provider" class="theme-spectrum">
+                        {ipfs_provider}
+                    </cai-panel-section>
+                    <cai-panel-section header="IPFS Content Identifier" helpText_off="IPFS fingerprint"
+                        class="theme-spectrum">
+                        {ipfs_url}
+                    </cai-panel-section>
+                    <cai-panel-section header="Social media"
+                        helpText_off="Social media accounts connected to the producer of this content"
+                        class="theme-spectrum">
+                        <div className="social-media">
+                            {claim.social}
+                        </div>
+
+                    </cai-panel-section>
+                    <cai-panel-section header="Number of actions"
+                        helpText_off="Number of unique actions taken on this image" class="theme-spectrum">
+                        {claim.assertionscount}
+                    </cai-panel-section>
+                    <cai-panel-section header="Produced with" helpText_off="Software used to make this content"
+                        class="theme-spectrum">
+                        <div className="produced-with">
+                            <cai-icon source={claim.recorder}></cai-icon>
+                            <div>
+                                <div>{claim.recorder}</div>
+                            </div>
+                        </div>
+                    </cai-panel-section>
+
+                </div>
+            </cai-discrete-panel>
+        </cai-popover>
+    </div>
+</body>
+
+</html>

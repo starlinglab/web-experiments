@@ -1,0 +1,70 @@
+<html>
+
+<head>
+
+    <script>
+        async function ListNFT() {
+            var to = document.getElementById("walletList").value;
+            var out = document.getElementById("out");
+            await litNodeClient.connect()
+            var res = await LitJsSdk.findLITs({ chain: "polygon", accountAddress: to });
+            out.innerHTML = JSON.stringify(res);
+            alert(JSON.stringify(res));
+
+
+        }
+        async function MintNFT() {
+            var count = document.getElementById("count").value;;
+
+            await litNodeClient.connect()
+            var res = await LitJsSdk.mintLIT({ chain: "polygon", quantity: count });
+
+        }
+        async function MoveNFT() {
+            var to = document.getElementById("wallet").value;;
+            var tokenID = document.getElementById("tokenID").value;
+
+            await litNodeClient.connect()
+
+            var res = await LitJsSdk.sendLIT(
+                {
+                    tokenMetadata:
+                    {
+                        tokenAddress: "0x7c7757a9675f06f3be4618bb68732c4ab25d2e88",
+                        tokenId: tokenID,
+                        chain: "polygon"
+                    },
+                    to: to
+                }
+            );
+            //  var res = await LitJsSdk.sendLIT({ chain:"polygon",quantity:100});
+            alert(JSON.stringify(res));
+            window.litNodeClient = litNodeClient
+        }
+    </script>
+</head>
+
+<body>
+    <script onload='LitJsSdk.litJsSdkLoadedInALIT()' src="https://jscdn.litgateway.com/index.web.js"></script>
+    <b>Move</b><br>
+    Target Wallet <input type="text" id="wallet">
+    TokenID <input type="text" id="tokenID" value="72">
+    <input type="button" onclick="MoveNFT()" value="Send NFT" /><br>
+    <br>
+    <hr>
+
+    <b>Mint NFT</b><br>
+    # of tokens to Mint <input type="text" id="count" value="1">
+    <input type="button" onclick="MintNFT()" value="Send NFT" /><br>
+    <br>
+    <hr>
+    <b>List NFTs In Wallet</b><br>
+    Wallet: <input type="text" id="walletList" value="0x3DdD78F98D09ab4EA5C877D24D065C231ED39bE8"><br>
+    <br>
+    <input type="button" onclick="ListNFT()" value="List NFT" />
+    <div style="display:block; border:1px solid black" id="out">
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,83 @@
+<html>
+
+<body>
+    <div style="float:right"><img id="image"></div>
+    Url: <input type="text" style="width:500px"
+        value="https://bafybeicounx43itjxidhoszbtc2zzctd3xiaqjkgmg5aqcwqo2wrffsh4u.ipfs.dweb.link/dog.jpg.encrypted"
+        id="txtURL" /><br>
+
+        key (dont change):
+    <input type="text" style="width:500px"
+        value="ae89839c6ef075e6ad2089a7691f972910fb4133afa026256dfe80882080cd6b"
+        id="txtKey" />
+    <br>
+    <br>
+  
+    <script onload='LitJsSdk.litJsSdkLoadedInALIT()' src="https://jscdn.litgateway.com/index.web.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script type="module">
+  
+  const SYMM_KEY_ALGO_PARAMS = {
+                    name: "AES-CBC",
+                    length: 256,
+                };
+
+        //import axios from './axios.min.js';
+        async function test123() {
+            try {
+
+                var URL = document.getElementById("txtURL").value;
+                var key = document.getElementById("txtKey").value;
+                var key2 = new Uint8Array([
+  174, 137, 131, 156, 110, 240, 117,
+  230, 173,  32, 137, 167, 105,  31,
+  151,  41,  16, 251,  65,  51, 175,
+  160,  38,  37, 109, 254, 128, 136,
+   32, 128, 205, 107
+]);
+
+                const unlockedSymmKey = await crypto.subtle.importKey(
+                    "raw",
+                    key2,
+                    SYMM_KEY_ALGO_PARAMS,
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+
+                let response = await axios.get(URL, { responseType: 'arraybuffer' });
+                let readBuffer = response.data;
+
+                //Decrypt data
+                let decryptedBlobArrayBuffer = await LitJsSdk.decryptWithSymmetricKey(
+                    new Blob([readBuffer]),
+                    unlockedSymmKey
+                );
+                console.log(decryptedBlobArrayBuffer);
+
+                var data = "data:image/jpeg;base64," + arrayBufferToBase64(decryptedBlobArrayBuffer);
+                document.getElementById('image').src = data;
+                console.log(data);
+            } catch (ex) {
+                console.log(ex);
+                alert(ex.message);
+            }
+        }
+        document.querySelector('#hello').addEventListener('click', test123);
+
+        function arrayBufferToBase64(buffer) {
+            var binary = '';
+            var bytes = new Uint8Array(buffer);
+            var len = bytes.byteLength;
+            for (var i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+
+    </script>
+
+    <input type="button" id="hello" value="go" />    
+</body>
+
+</html>
