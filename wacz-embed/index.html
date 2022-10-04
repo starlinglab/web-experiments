@@ -1,23 +1,29 @@
 <!doctype html>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="replay/ui.js"></script>
-  </head>
-  <body>
 
-Dev version from https://dev.replayweb.page/ui.js and https://dev.replayweb.page/sw.js
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="replay/ui.js"></script>
+</head>
 
+<body>
 
-<div style="height:675px; width:700px;">
-<replay-web-page class="test1"
-source="example.wacz"
-replaybase="./replay/"
-url="https://example.com"
-noSandbox="true"
-embed="replay-with-info" 
-newwindowbase="https://starlinglab.github.io/web-experiments/wacz-embed/"
-></replay-web-page>
-</div>
-  </body>
+  Dev version from https://dev.replayweb.page/ui.js and https://dev.replayweb.page/sw.js
+  <br><br>
+  Lets Encrypt
+  <div style="height:675px; width:700px;">
+    <replay-web-page class="test1" source="example.wacz" replaybase="./replay/" url="https://example.com"
+      noSandbox="true" embed="replay-with-info"
+      newwindowbase="https://starlinglab.github.io/web-experiments/wacz-embed/"></replay-web-page>
+  </div>
+  <br>
+  <br>
+  Local
+  <div style="height:675px; width:700px;">
+    <replay-web-page class="test1" source="example.local.wacz" replaybase="./replay/" url="https://example.com"
+      noSandbox="true" embed="replay-with-info"
+      newwindowbase="https://starlinglab.github.io/web-experiments/wacz-embed/"></replay-web-page>
+  </div>
+</body>
+
 </html>
